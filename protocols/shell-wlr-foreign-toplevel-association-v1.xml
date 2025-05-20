@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_wlr_foreign_toplevel_association_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol for association of ext and wlr foreign toplevel handles">
+    This protocol allows a client to determine if an ext_foreign_toplevel_handle_v1
+    and zwlr_foreign_toplevel_handle_v1 refer to the same toplevel.
+
+    Compositor policy for exposing this protocol, ext-foreign-toplevel-list-v1
+    and wlr-foreign-toplevel-management-unstable-v1 should match.
+
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_wlr_foreign_toplevel_association_manager_v1" version="1">
+    <description summary="associates ext and wlr toplevel handles">
+      A foreign toplevel pair is defined as a set of both a
+      live ext_foreign_toplevel_handle_v1 object and a live
+      zwlr_foreign_toplevel_handle_v1 object that refer to the same
+      object in the compositor.
+
+      Upon creation of the manager, 'associate' events must be sent for
+      all existing foreign toplevel pairs. Following creation, an associate
+      event must be sent whenever a new foreign toplevel pair is completed.
+
+      Completion occurs whenever an ext_foreign_toplevel_handle_v1 and
+      zwlr_foreign_toplevel_handle_v1 begin to exist simultaneously on
+      the client. This happens immediately following an
+      'ext_foreign_toplevel_list_v1.toplevel' or
+      'zwlr_foreign_toplevel_management_v1.toplevel' event, once both
+      referenced objects are live.
+
+      Clients which only care about the current state can perform a
+      roundtrip after binding this global.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroys the manager object. All live associations will be resent
+        if the manager is later rebound.
+      </description>
+    </request>
+
+    <event name="associate">
+      <description summary="associates an ext and wlr toplevel handle">
+        This event associates an ext toplevel with a wlr toplevel.
+      </description>
+
+      <arg name="ext_toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+      <arg name="wlr_toplevel" type="object" interface="zwlr_foreign_toplevel_handle_v1"/>
+    </event>
+  </interface>
+</protocol>
