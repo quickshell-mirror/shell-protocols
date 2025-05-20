@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_workspace_toplevel_management_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol for managing toplevels on a workspace">
+    The workspace toplevel management protocol allows clients to observe
+    and optionally manipulate toplevels in relation to workspaces as
+    defined in the ext-workspace-v1 protocol.
+    
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_workspace_toplevel_manager_v1" version="1">
+    <description summary="acquires workspace toplevel management handles">
+      The workspace toplevel manager global allows clients to acquire
+      workspace toplevel management handles.
+    </description>
+
+    <request name="destroy">
+      <description summary="destroy the manager">
+        Destroy the workspace toplevel manager. Destroying the manager
+        does not destroy objects created by the manager.
+      </description>
+    </request>
+
+    <request name="get_handle">
+      <description summary="get a workspace toplevel management handle">
+        This request acquires a workspace toplevel management handle for
+        a given workspace.
+
+        If multiple 'ext_workspace_manager_v1' instances exist, transactional
+        requests and events on the new handle refer to the manager that
+        created the given workspace object.
+
+        Toplevels referenced by events and responses must be part of the
+        toplevel list given to this call or an 'invalid_toplevel' error
+        will be raised.
+      </description>
+
+      <arg name="handle" type="new_id" interface="shell_workspace_toplevel_management_handle_v1"/>
+      <arg name="workspace" type="object" interface="ext_workspace_handle_v1"/>
+      <arg name="toplevel_list" type="object" interface="ext_foreign_toplevel_list_v1"/>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_toplevel_management_handle_v1" version="1">
+    <description summary="a handle to observe and manage toplevels present on a workspace">
+      A workspace toplevel management handle allows observation of toplevels
+      present on a workspace and their management.
+
+      Upon creation of this object, the compositor must send 'capabilities'
+      and 'enter' events for toplevels currently present on the workspace,
+      and must send a 'ext_workspace_manager_v1.done' event regardless of
+      if any toplevels are present.
+    </description>
+
+    <enum name="error">
+      <entry name="invalid_toplevel"
+             summary="a toplevel not from the provided toplevel list was used"
+             value="1"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the handle">
+        This request destroys the workspace toplevel management handle.
+      </description>
+    </request>
+
+    <enum name="capabilities">
+      <entry name="add_toplevel"
+             summary="add_toplevel requests can be made on this workspace"
+             value="1">
+      </entry>
+      <entry name="remove_toplevel"
+             summary="remove_toplevel requests can be made on this workspace"
+             value="2"/>
+    </enum>
+
+    <event name="capabilities">
+      <description summary="the workspace's capabilities have been updated">
+        This event changes the capabilities available for the workspace.
+
+        It must be sent upon creation of the object even if no capabilities
+        are available.
+
+        This event is transactional and should not be acted upon until
+        the 'ext_workspace_manager_v1.done' event is received.
+      </description>
+
+      <arg name="capabilities" type="uint" enum="capabilities"/>
+    </event>
+
+    <event name="enter">
+      <description summary="a toplevel has entered the workspace">
+        A toplevel has entered this workspace.
+
+        This event is transactional and should not be acted upon until
+        the 'ext_workspace_manager_v1.done' event is received.
+      </description>
+
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </event>
+
+    <event name="leave">
+      <description summary="a toplevel has left the workspace">
+        A toplevel has left this workspace.
+
+        This event is transactional and should not be acted upon until
+        the 'ext_workspace_manager_v1.done' event is received.
+      </description>
+
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </event>
+
+    <request name="add_toplevel">
+      <description summary="add a toplevel to the workspace">
+        This request asks the compositor to add the given toplevel to the workspace.
+        Compositor policy dictates if this involves removing the toplevel from
+        another workspace.
+
+        This event is transactional and must not be considered until an
+        'ext_workspace_manager_v1.commit' event has been sent.
+
+        The compositor must send an 'ext_workspace_manager_v1.done' event after
+        handling this request, regardless of if the toplevel was added.
+
+        If adding the toplevel to this workspace involves removing it from another,
+        the other workspace must be sent a 'leave' event before the 'done' event
+        is sent.
+
+        If the 'add_toplevel' capability is not present, the request must be
+        ignored.
+      </description>
+
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </request>
+
+    <request name="remove_toplevel">
+      <description summary="remove a toplevel from the workspace">
+        This request asks the compositor to remove the given toplevel from the workspace.
+        Compositor policy dictates if this involves removing the toplevel from
+        another workspace.
+
+        This event is transactional and must not be considered until an
+        'ext_workspace_manager_v1.commit' event has been sent.
+
+        The compositor must send an 'ext_workspace_manager_v1.done' event after
+        handling this request, regardless of if the toplevel was removed.
+
+        If removing the toplevel from this workspace involves adding it to another,
+        the other workspace must be sent an 'enter' event before the 'done' event
+        is sent.
+
+        If the 'remove_toplevel' capability is not present, the request must be
+        ignored.
+      </description>
+
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </request>
+  </interface>
+</protocol>
