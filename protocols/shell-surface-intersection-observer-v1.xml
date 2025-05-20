@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_surface_intersection_observer_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol for observing intersection between surfaces and toplevels">
+    This protocol allows clients to detect when a toplevel window intersects
+    with a region relative to a client surface. This is intended to support
+    desktop shell components that wish to avoid covering or being covered by
+    a window, such as docks.
+
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_surface_intersection_observer_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="get_observer">
+      <description summary="get an intersection observer for the given surface">
+        Get an intersection observer for the given surface.
+
+        If a client intends to change the geometry of the surface based
+        on observed intersections and intends to detect intersections
+        in the same location after modifying the surface geometry,
+        the client should use 'set_detection_region' to ensure the
+        observed region matches the desired location.
+
+        A compositor may wish to offer intersection information to
+        only a subset of clients or surfaces. If the compositor's
+        decision is influenced by the specific surface or requested
+        intersection region, the compositor must wait for a
+        'wl_surface.commit' following creation of the observer
+        before making a descision.
+
+        Clients may wait for a 'flags' event following the previously
+        mentioned commit to make a decision about where to map the
+        surface based on potential intersections, so compositors must
+        respond with a 'flags' or 'finished' event following the commit
+        to avoid blocking the client.
+      </description>
+
+      <arg name="observer" type="new_id" interface="shell_surface_intersection_observer_v1"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+  </interface>
+
+  <interface name="shell_surface_intersection_observer_v1" version="1">
+    <description summary="observe intersections of surfaces and toplevels">
+      A shell surface intersection observer allows a client to monitor
+      a region relative to a wl_surface for intersecting toplevels.
+    </description>
+
+    <request name="destroy">
+      <description summary="destroy the intersection observer">
+        Destroys the object.
+      </description>
+    </request>
+
+    <event name="finished">
+      <description summary="no further events will be sent">
+        The compositor is done sending events to this intersection observer.
+
+        This event may be sent immediately if the compositor does not wish
+        to provide intersection information for the surface, or if the
+        compositor later decides to stop providing intersection information
+        to the surface.
+      </description>
+    </event>
+
+    <request name="set_detection_region">
+      <description summary="sets the observed region">
+        Sets the region the client wishes to observe intersections for.
+        This region is relative to the geometry of the surface.
+
+        When unset or set to null, the observation region matches the
+        geometry of the surface.
+
+        The detection region is double-buffered and must not take effect
+        until 'wl_surface.commit' is called.
+      </description>
+
+      <arg name="region" type="object" interface="wl_region" allow-null="true"/>
+    </request>
+
+    <enum name="flags">
+      <entry name="floating_toplevel"
+             summary="a floating toplevel intersects with the region"
+             value="1"/>
+      <entry name="tiled_toplevel"
+             summary="a tiled toplevel intersects with the region"
+             value="2"/>
+      <entry name="maximized_toplevel"
+             summary="a maximized toplevel intersects with the region"
+             value="4"/>
+    </enum>
+
+    <event name="flags">
+      <description summary="intersections in the observed region have changed">
+        This event reports the current state of intersections in the
+        observed region. It is sent upon creation of the intersection
+        observer and following any observed changes in the observed region.
+
+        Window decorations should be included when checking if a toplevel
+        intersects with the region.
+      </description>
+
+      <arg name="flags" type="uint" enum="flags"/>
+    </event>
+  </interface>
+</protocol>
