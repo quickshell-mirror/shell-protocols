@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_workspace_creation_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol allowing the creation of workspaces">
+    Many compositors make use of workspaces that are created dynamically
+    based on content or focus. This protocol aims to allow creation of
+    workspaces in such environments by combining the intent to create
+    a workspace with actions suitable to create one.
+
+    This protocol additionally aims to make any logical workspace location
+    or workspace type available to the client, through globals defined
+    in this protocol or compositor-specific companion protocols.
+
+    A client may attempt to discover potential creation methods by
+    creating new workspace targets, checking their capabilities and
+    destroying them without use.
+    
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_workspace_creation_target_descriptor_v1" version="1">
+    <description summary="opaque workspace creation target descriptor">
+      The workspace creation target descriptor is an opaque object
+      that describes where and how a workspace will be created.
+
+      Because shell_workspace_creation_target_descriptor_v1 objects
+      are created from multiple independent factory interfaces,
+      the shell_workspace_creation_target_descriptor_v1 interface
+      is frozen at version 1.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the descriptor">
+        Destroys the object.
+      </description>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_target_creation_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="get_target">
+      <description>
+        This request creates a new workspace target from a given workspace
+        target descriptor.
+
+        The descriptor may be destroyed following this request.
+
+        Because the target descriptor cannot be versioned, this request
+        is used to create a versionable target from the descriptor.
+      </description>
+
+      <arg name="target" type="new_id" interface="shell_workspace_creation_target_v1"/>
+      <arg name="descriptor" type="new_id" interface="shell_workspace_creation_target_descriptor_v1"/>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_arbitrary_creation_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="get_arbitrary_target">
+      <description summary="create a workspace target relative to another workspace">
+        This requests creates a workspace target that targets an arbitrary
+        compositor chosen name and location for the workspace.
+      </description>
+
+      <arg name="descriptor" type="new_id" interface="shell_workspace_creation_target_descriptor_v1"/>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_coordinate_creation_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="get_coordinate_target">
+      <description summary="create a workspace target at the given coordinates">
+        This request creates a workspace target at the given coordinates in
+        the compositor's workspace coordinate space. This coordinate space
+        should match the one used in 'ext_workspace_handle_v1.coordinates'.
+
+        A given set of coordinates may be unrepresentable or otherwise disallowed
+        by the compositor, in which case the workspace target will be invalid.
+
+        If a workspace already exists at the given coordinates, the resuling
+        target should be valid and refer to the existing workspace.
+      </description>
+
+      <arg name="descriptor" type="new_id" interface="shell_workspace_creation_target_descriptor_v1"/>
+      <arg name="coordinates" type="array"/>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_relative_creation_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="get_relative_target">
+      <description summary="create a workspace target relative to another workspace">
+        This request creates a workspace target at the given coordinate offset
+        from another workspace. The workspace coordinate space should match the
+        one used in 'ext_workspace_handle_v1.coordinates'.
+
+        A given coordinate offset may be unrepresentable or otherwise disallowed
+        by the compositor, in which case the workspace target will be invalid.
+
+        If a workspace already exists at the given offset, the resuling
+        target should be valid and refer to the existing workspace.
+      </description>
+
+      <arg name="descriptor" type="new_id" interface="shell_workspace_creation_target_descriptor_v1"/>
+      <arg name="workspace" type="object" interface="ext_workspace_handle_v1"/>
+      <arg name="offset" type="array" summary="coordinate offset from the given workspace"/>
+    </request>
+  </interface>
+
+  <interface name="shell_workspace_creation_target_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <description summary="a target for actions that may create or activate a target workspace">
+      A workspace creation target is a target for actions that may create a new workspace
+      if performed. It may refer to either an existing workspace, or act as a marker
+      of where and how a new workspace should be created.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the target">
+        Destroy the workspace target. Destroying the target does not
+        cancel committed requests.
+      </description>
+    </request>
+
+    <enum name="capabilities">
+      <entry name="create"
+             summary="the targeted workspace can be created with only a request"
+             value="1"/>
+      <entry name="external"
+             summary="the targeted workspace can be created through an extension protocol"
+             value="2"/>
+      <entry name="by_name"
+             summary="the targeted workspace can be created by assigning a name"
+             value="4"/>
+      <entry name="nameable"
+             summary="the targeted workspace can be named during creation"
+             value="8"/>
+      <entry name="activate"
+             summary="the targeted workspace can be created by activating it"
+             value="16"/>
+      <entry name="add_toplevel"
+             summary="the workspace toplevels can be created by adding a toplevel to it"
+             value="32"/>
+    </enum>
+
+    <event name="capabilities">
+      <description summary="update the capabilities of the workspace target">
+        This event updates the capabilities of the workspace target.
+        It must be sent upon creation of the target, and may be
+        sent again at any point thereafter.
+
+        A workspace target without any capabilities is considered to be
+        invalid. An invalid target may be provided by the compositor
+        if an unrepresentable, disallowed, or otherwise invalid workspace
+        target is requested by the client.
+
+        Clients are not required to check the capabilities of the target
+        before attempting to use them, but such uses must result in failure.
+      </description>
+
+      <arg name="capabilities" type="uint" enum="capabilities"/>
+    </event>
+
+    <event name="success">
+      <description summary="an action was successful">
+        This event reports that a requested action was successful.
+
+        Reported 'success' and 'failed' events correspond to actions
+        in the order they were requested.
+      </description>
+    </event>
+
+    <event name="failed">
+      <description summary="an action was successful">
+        This event reports that a requested action was not successful.
+        This may be due to a missing capability or any other compositor
+        determined reason.
+
+        Reported 'success' and 'failed' events correspond to actions
+        in the order they were requested.
+      </description>
+    </event>
+
+    <request name="commit">
+      <description summary="submit a sequence of actions">
+        This request submits a sequence of creation actions to be
+        performed atomically.
+
+        Additional creation actions may be specified using
+        a compositor-specific extension protocol.
+
+        Following this request, the client will receive a series of 'success'
+        or 'failed' events corresponding to the requested actions.
+
+        The client may destroy the target object following this request if it
+        does not care about the results of the actions or wishes to determine
+        them in another way.
+      </description>
+    </request>
+
+    <request name="create">
+      <description summary="create the workspace">
+        Asks the compositor to create the workspace target.
+        This request is redundant if any other action is requested.
+
+        This request must not take effect until committed.
+        
+        A 'success' or 'failed' event must be sent in response to this
+        following a commit. The request should be considered successful
+        if the workspace exists following the request, regardless
+        of if its creation was a result of this request.
+      </description>
+    </request>
+
+    <request name="set_name">
+      <description summary="set the name of the targeted workspace">
+        Asks the compositor to give a name to the targeted workspace.
+
+        If the 'by_name' capability is present, assigning a name to the
+        workspace is enough to ensure its creation. The workspace may
+        still accept a name if the 'nameable' capability is present.
+
+        This request must not take effect until committed.
+
+        A 'success' or 'failed' event must be sent in response to this
+        following a commit. The request should be considered successful
+        if the workspace is active following the request, regardless
+        of if its activation was a result of this request.
+      </description>
+    </request>
+
+    <request name="activate">
+      <description summary="activate the target workspace">
+        Asks the compositor to active the workspace target.
+
+        This request must not take effect until committed.
+
+        A 'success' or 'failed' event must be sent in response to this
+        following a commit. The request should be considered successful
+        if the workspace is active following the request, regardless
+        of if its activation was a result of this request.
+      </description>
+    </request>
+
+    <request name="add_toplevel">
+      <description summary="add a toplevel to the target workspace">
+        Asks the compositor to move the given toplevel to the workspace
+        target. This request should not activate the target workspace
+        without an additional 'activate' request.
+
+        This request must not take effect until committed.
+
+        A 'success' or 'failed' event must be sent in response to this
+        following a commit. The request should be considered successful
+        if the toplevel is present on the workspace following the request,
+        regardless of if its presence was a result of this request.
+      </description>
+    </request>
+  </interface>
+</protocol>
