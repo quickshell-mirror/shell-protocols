@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_foreign_toplevel_icon_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol for foreign toplevel icon discovery">
+    This protocol allows clients to discover icons set for foreign toplevel
+    windows from client provided pixel buffers or XDG icons.
+
+    A toplevel icon represents the individual toplevel (unlike the application
+    or launcher icon, which represents the application as a whole), and may be
+    shown in window switchers, window overviews and taskbars that list
+    individual windows.
+
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_foreign_toplevel_icon_manager_v1" version="1">
+    <description summary="interface for foreign toplevel icon discovery">
+      This interface allows clients to discover icons set for foreign toplevels.
+    </description>
+
+    <enum name="error">
+      <entry name="uncommitted"
+             summary="a get_handle request was made prior to commit"
+             value="1"/>
+      <entry name="live_icon_handles"
+             summary="the manager was destroyed without destroying all icon handles"
+             value="2"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. It is an error to destroy the manager without
+        destroying all icon handles created by it.
+      </description>
+    </request>
+
+    <request name="commit">
+      <description summary="commit the client's icon size preference">
+        Commit the client's icon size preferences.
+
+        May be sent multiple times. Each commit creates a new list,
+        discarding preferred_size requests from the prior commit.
+      </description>
+    </request>
+
+    <request name="preferred_size">
+      <description summary="add a preferred icon size">
+        Indicates an icon size that the client would prefer to have available.
+        The compositor should pass this request on to foreign clients, but
+        this preference may be ignored.
+
+        A sequence of preferred_size events must be finished with a 'done'
+        event. If the client has no size preferences, it must still send
+        the 'commit' request.
+
+        The client may revise its size preferences at any time by sending
+        a new preferred size list followed by another commit.
+      </description>
+
+      <arg name="size", type="int"/>
+    </request>
+
+    <request name="get_handle">
+      <description summary="create a new icon handle">
+        Creates a new icon handle for the given toplevel.
+
+        This request must not be made before the first commit request.
+      </description>
+
+      <arg name="handle" type="new_id" interface="shell_foreign_toplevel_icon_handle_v1"/>
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </request>
+
+    <event name="icon">
+      <description summary="a new icon has been provided">
+        This event is emitted when an icon that the client does not have
+        a reference to is required to send the
+        shell_foreign_toplevel_icon_handle_v1.icon event.
+
+        Multiple toplevel icon handles may refer to the same icon
+        simultaneously.
+      </description>
+
+      <arg name="icon" type="new_id" interface="shell_foreign_toplevel_icon_v1"/>
+    </event>
+  </interface>
+
+  <interface name="shell_foreign_toplevel_icon_handle_v1" version="1">
+    <description summary="a handle referencing a foreign toplevel's icon">
+      A handle tracking the current icon of a foreign toplevel.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="">
+        This request destroys the icon handle and instructs the compositor
+        to stop sending 'icon' events for icons it would receive.
+
+        Any icons for which this toplevel is the only user will receive
+        a 'finished' event, including new icons sent before the
+        compositor has processed this request.
+      </description>
+    </request>
+
+    <event name="icon">
+      <description summary="a new icon has been set for this toplevel">
+        Sent when a new icon is set for this toplevel.
+
+        A null icon indicates that the toplevel's icon has been unset and
+        the client should fall back on a different strategy such as
+        desktop entries for the toplevel's icon.
+
+        Upon object creation, an icon event must be sent, with either an icon
+        object or null if the toplevel has not set an icon.
+      </description>
+
+      <arg name="icon" type="object" interface="shell_foreign_toplevel_icon_v1"/>
+    </event>
+  </interface
+
+  <interface name="shell_foreign_toplevel_icon_v1" version="1">
+    <description summary="an icon used by foreign toplevels">
+      An icon used by one or more foreign toplevels.
+    </description>
+
+    <enum name="error">
+      <entry name="missing_buffer"
+             summary="a copy_buffer request was issued for a buffer that does not exist"
+             value="1"/>
+      <entry name="destroyed_while_unfinished"
+             summary="attempted to destroy an icon which has not received a finished event"
+             value="2"/>
+    </enum>
+
+    <request name="destroy">
+      <description summary="destroys the icon">
+        This request destroys the icon object. Destroying the icon
+        prior to receiving a 'finished' event is a protocol error.
+      </description>
+    </request>
+
+    <event name="finished">
+      <description summary="the compositor is finished with this icon">
+        This event indicates that this icon will not be used in further
+        'shell_foreign_toplevel_icon_handle_v1.icon' events and is safe
+        to destroy.
+
+        This event may be sent in response to a release request or
+        when no toplevel icon handles refer to this icon anymore.
+      </description>
+    </event>
+
+    <request name="release">
+      <description summary="attempt to release the icon">
+        This request indicates that the client would like to destroy
+        the icon object.
+
+        The compositor must respond by either sending a
+        'shell_foreign_toplevel_icon_handle_v1.icon' event referencing
+        this icon, or sending the 'finished' event to this object.
+      </description>
+    </request>
+
+    <request name="copy_icon">
+      <description summary="copy a shm backed icon">
+        Copy an icon listed by 'buffer' into a client provided buffer.
+
+        The provided size and format must have been listed by 'buffer'
+        in the last icon option group.
+      </description>
+      
+      <arg name="size" type="uint"/>
+      <arg name="format" type="uint" enum="wl_shm.format"/>
+      <arg name="buffer" type="object" interface="wl_buffer"/>
+    </request>
+
+    <event name="done">
+      <description summary="all icon representation have been sent">
+        This event is sent after all 'add_buffer' events and optionally
+        an 'icon_name' event have been sent.
+      </description>
+    </event>
+
+    <event name="icon_name">
+      <description summary="set an icon name">
+        This event assigns an icon name to this icon. It must not be
+        sent more than once, and must not be sent after 'done'.
+
+        The icon refered to by the provided name should be resolved
+        according to the XDG icon theme specification[1] using the
+        environment's current icon theme.
+
+        [1]: https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html
+      </description>
+
+      <arg name="name" type="string"/>
+    </event>
+
+    <event name="add_buffer">
+      <description summary="provides an icon buffer">
+        This event exposes an available pixel buffer representing the icon.
+        Multiple add_buffer events may be sent at different sizes, scales,
+        and buffer formats. The event must not be sent after 'done'.
+
+        The buffer must be backed by wl_shm and must be square.
+      </description>
+
+      <arg name="size" type="uint" summary="the width and height of the icon in pixels"/>
+      <arg name="scale" type="uint" summary="the scaling factor of the icon"/>
+      <arg name="format" type="uint" enum="wl_shm.format"/>
+    </event>
+
+    <request name="copy_buffer">
+      <description summary="copy an icon to a client provided buffer">
+        This request asks the compositor to copy one of the icon's available
+        pixel buffers to the provided client buffer.
+
+        The selected buffer will be determined based on the format and width
+        of the provided client buffer, as well as the provided scale. If the
+        provided buffer and scale do not match a buffer associated with the icon,
+        the 'missing_buffer' error will be raised.
+
+        The 'buffer_copied' event will be sent once the compositor has finished
+        copying the image to the client buffer. The wl_buffer.release event is unused.
+      </description>
+
+      <arg name="buffer" type="object" interface="wl_buffer" summary="the target buffer"/>
+      <arg name="scale" type="uint" summary="the scaling factor of the icon"/>
+    </request>
+
+    <event name="buffer_copied">
+      <description summary="the compositor has finished copying into a buffer">
+        This event is sent once the compositor has finished copying pixel
+        data into a provided client buffer.
+
+        If multiple 'copy_buffer' requests were made, the received events
+        must refer to buffers in the same order the requests were made.
+      </description>
+    </event>
+  </interface>
+</protocol>
