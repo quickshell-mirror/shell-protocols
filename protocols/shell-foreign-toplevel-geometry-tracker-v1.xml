@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_foreign_toplevel_geometry_tracker_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol allowing clients to track foreign toplevel geometry">
+    This protocol allows clients to track the geometry of toplevels
+    relative to outputs or workspaces, enabling workspace overviews
+    and window picking.
+
+    This protocol is privileged and should be limited to trusted clients.
+
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_foreign_toplevel_geometry_tracker_manager_v1" version="1">
+    <description summary="manager for geometry trackers">
+      This global creates and synchronizes geometry trackers.
+    </description>
+
+    <enum name="error">
+      <entry name="live_trackers"
+             summary="destroyed geometry tracker manager while trackers were live"
+             value="1"/>
+    </enum>
+      
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager prior to
+        the destruction of all trackers created by it is a protocol
+        error, as the manager is responsible for synchronization.
+      </description>
+    </request>
+
+    <event name="done">
+      <description summary="all geometry tracker events have been sent">
+        This event signals that all events related to created geometry
+        trackers and their members have been sent.
+      </description>
+    </event>
+
+    <request name="get_output_tracker">
+      <description summary="create a geometry tracker for a given output">
+        Creates a geometry tracker which tracks toplevels on a given output.
+      </description>
+
+      <arg name="tracker" type="new_id" interface="shell_foreign_toplevel_geometry_tracker_v1"/>
+      <arg name="output" type="object" interface="wl_output"/>
+    </request>
+
+    <request name="get_workspace_tracker">
+      <description summary="create a geometry tracker for a given workspace">
+        Creates a geometry tracker which tracks toplevels on a given workspace.
+      </description>
+
+      <arg name="tracker" type="new_id" interface="shell_foreign_toplevel_geometry_tracker_v1"/>
+      <arg name="workspace" type="object" interface="ext_workspace_handle_v1"/>
+    </request>
+  </interface>
+
+  <interface name="shell_foreign_toplevel_geometry_tracker_v1" version="1">
+    <description summary="tracks relative geometry of intersecting objects">
+      A geometry tracker tracks the relative geometry of toplevels
+      intersecting with an output or workspace.
+
+      Upon creation, an 'area' event must be sent.
+    </description>
+
+    <enum name="error">
+      <entry name="reset_toplevel_list"
+             summary="attempted to assign a toplevel list to the tracker multiple times"
+             value="1"/>
+      <entry name="destroyed_toplevel_list"
+             summary="toplevel list used in a geometry tracker was destroyed"
+             value="2"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the tracker">
+        Destroy the tracker. All tracker members must receive a
+        finished event following this request.
+      </description>
+    </request>
+
+    <event name="area">
+      <description summary="reports the geometry of the tracked area">
+        This event reports the geometry of the tracked area.
+
+        Reported width and height should match the dimensions of the
+        tracked area in logical pixels.
+
+        This event must be sent upon creation of the tracker, and
+        whenever the tracked area changes. This event is double-buffered
+        and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </event>
+
+    <event name="margins">
+      <description summary="reports insets into the tracked area">
+        This event reports margins into the tracked area where toplevels
+        may not normally be placed, such as exclusive zones of layer
+        surfaces. Clients may use this information to avoid showing
+        gaps in visual representations of the tracked area.
+
+        Reported margins must be in the same coordinate space as
+        those reported by 'area'.
+
+        This event may be sent upon creation of the tracker, and
+        whenever insets change. This event is double-buffered
+        and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="left" type="int"/>
+      <arg name="top" type="int"/>
+      <arg name="right" type="int"/>
+      <arg name="bottom" type="int"/>
+    </event>
+
+    <event name="entered">
+      <description name="an entity has entered the tracker area">
+        This event reports that a toplevel has entered the tracking
+        area. Untracked entities must not receive 'entered' events.
+      </description>
+
+      <arg name="member" type="new_id" interface="shell_foreign_toplevel_geometry_tracker_member_v1"/>
+    </evnt>
+
+    <request name="track_toplevels">
+      <description summary="begins tracking toplevels">
+        This request asks the compositor to track all toplevels created by the
+        given toplevel list that enter the tracking area.
+
+        Upon request, all toplevels that qualify as members of the tracker
+        must be provided via an 'enter' event.
+
+        Attempting to set the toplevel list more than once is an error, as
+        is destroying the toplevel list prior to the destruction of
+        this object.
+      </description>
+
+      <arg name="list" type="object" interface="ext_foreign_toplevel_list_v1"/>
+    </request>
+  </interface>
+
+  <interface name="shell_foreign_toplevel_geometry_tracker_member_v1" version="1">
+    <description summary="tracked entity visible on a geometry tracker">
+      A toplevel tracked by a geometry tracker.
+
+      Upon creation, toplevel, geometry, and optionally stacking order
+      events must be sent by the compositor.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the member">
+        Destroys the tracker member object.
+      </description>
+    </request>
+
+    <event name="left">
+      <description summary="the toplevel has left the tracked area">
+        The toplevel has left the tracked area. A toplevel must not be
+        considered to have left until the toplevel's geometry has no
+        intersection with the geometry tracker.
+
+        Following this event, the member object should be destroyed and no more
+        events will be sent to it. If the toplevel later re-enters the tracked
+        area it will do so as a new object.
+
+        This event is double-buffered and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+    </event>
+
+    <event name="geometry">
+      <description summary="geometry of the toplevel has changed">
+        New toplevel geometry information is available.
+        This event is sent upon creation of the member object or changes
+        to the toplevel's geometry.
+
+        Compositor policy dictates which window decorations are included
+        in the toplevel's geometry, but excluding non-window extents
+        such as shadows is recommended.
+        
+        This event is double-buffered and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </event>
+
+    <event name="above">
+      <description summary="the toplevel is now above another">
+        This event reports that the toplevel is now directly above the
+        given sibling in Z-order.
+
+        This event is double-buffered and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="sibling" type="object" interface="shell_foreign_toplevel_geometry_tracker_member_v1"/>
+    </event>
+
+    <event name="below">
+      <description summary="the toplevel is now below another">
+        This event reports that the toplevel is now directly below the
+        given sibling in Z-order.
+
+        This event is double-buffered and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="sibling" type="object" interface="shell_foreign_toplevel_geometry_tracker_member_v1"/>
+    </event>
+
+    <event name="toplevel">
+      <description summary="this member has been marked as a toplevel">
+        This event sets the toplevel the tracker member refers to. This
+        event can only be sent once, prior to the first 'done' event
+        following the creation of the member object.
+
+        A 'left' event must be sent upon closure of the toplevel.
+
+        This event is double-buffered and must be followed by a
+        'shell_foreign_toplevel_geometry_tracker_manager_v1.done' event.
+      </description>
+
+      <arg name="toplevel" type="object" interface="ext_foreign_toplevel_handle_v1"/>
+    </event>
+  </interface>
+</protocol>
