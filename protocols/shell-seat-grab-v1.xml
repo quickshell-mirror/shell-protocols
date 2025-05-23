@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shell_seat_grab_v1">
+  <copyright>
+    Copyright © 2025 outfoxxed
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <description summary="protocol for creating seat grabs">
+    This protocol allows a seat grab to be taken in less restrictive
+    ways than 'xdg_popup.grab'. It allows a greater set of surfaces to
+    perform a grab, and allows client-defined actions such as menu
+    closing animations to take place following the clearing of a grab.
+
+    The key words "must", "must not", "required", "shall", "shall not",
+    "should", "should not", "recommended",  "may", and "optional" in this
+    document are to be interpreted as described in IETF RFC 2119.
+
+    Warning! The protocol described in this file is intended as a stopgap
+    and is expected to be superseded by a solution in wayland-protocols.
+    Clients should not assume this protocol will continue to exist in the
+    future.
+  </description>
+
+  <interface name="shell_seat_grab_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroy the manager. Destroying the manager does not destroy objects
+        created by the manager.
+      </description>
+    </request>
+
+    <request name="grab">
+      <description summary="create a seat grab">
+        This request creates a seat grab object. The compositor may
+        respond with an 'active' event indicating the grab is now
+        active or a 'cleared' event indicating it was denied.
+
+        This request may be submitted with the serial number of a user
+        event to inform the compositor that the grab has been requested
+        as the result of a user action, or '0' if no serial is available.
+
+        Compositors may deny a grab for any reason including a '0' serial
+        or disallowed role, but may want to consider other conditions to
+        allow the creation of a grab, such as being performed by a client
+        with a newly created layer surface.
+      </description>
+
+      <arg name="grab" type="new_id" interface="shell_seat_grab_v1"/>
+      <arg name="seat" type="object" interface="wl_seat" summary="the seat to grab"/>
+      <arg name="serial" type="uint" summary="the serial of the user event"/>
+    </request>
+  </interface>
+
+  <interface name="shell_seat_grab_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the seat grab">
+        This request destroys the seat grab. If active, the grab is cleared.
+
+        If the grab is active, keyboard focus was requested for a surface prior
+        to destruction, the surface is still focusable following destruction and
+        leaving the surface keyboard focused makes sense for the compositor's
+        focus model, the compositor should leave the surface keyboard focused.
+        Otherwise, the compositor should re-determine keyboard focus following
+        its usual procedure.
+      </description>
+    </request>
+
+    <event name="cleared">
+      <description summary="the compositor has cleared the grab">
+        The compositor has cleared the seat grab. If this event
+        is sent before an 'active' event, the compositor has
+        declined to create the grab.
+
+        The grab should be destroyed following this event.
+      </description>
+    </event>
+
+    <event name="active">
+      <description summary="the seat grab is now active">
+        This event is sent when the seat grab comes into effect.
+      </description>
+    </event>
+
+    <request name="set_keyboard_surface">
+      <description summary="requests keyboard focus for a specific surface">
+        Request that the compositor gives keyboard focus to the given
+        surface.
+
+        If this request is not sent, a null surface is requested,
+        or the surface that currently has focus is destroyed,
+        no surface will receive keyboard focus. 
+      </description>
+
+      <arg name="surface" type="object" interface="wl_surface" allow-null="true"/>
+    </request>
+  </interface>
+</protocol>
